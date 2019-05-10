@@ -41,70 +41,68 @@ def get_number_image(frame, base_image, finish_line, horz_comp, file_name):
         if horz_filtered[i] == 1:
             output[cntr,:] = segment[i,:]
             cntr += 1
+    output = output[int(.3 * output.shape[0]):int(.7 * output.shape[0]),:]
+    output = np.flip(output, axis=1)
     save_image(output, file_name)
 
-finish_line = 360
-frames = 0
-horizontal_comp = 0
-edges = 0
-finish_image = 0
+finish_line = 360 # x coordinate of the finish line
+frames = 0 # numpy array of every frame
+horizontal_comp = 0 # array of every vert_filter-convolved row
+edges = 0 # array of the edges to use RANSAC line-fitting on
+finish_image = 0 # 
 
 if True or not os.path.isfile('edges.npy') or not os.path.isfile('finish.npy') or not os.path.isfile('horizontal_comp.npy') or not os.path.isfile('frames.npy'):
-    path = '../data/finish-line/20190413_142512.mp4'
+    path = '../data/finish-line/20190413_134043.mp4'
     video = cv2.VideoCapture(path)
     container = av.open(path)
 
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    out_image = 0
+    # these variables are initialized when processing the first frame
 
+    base_image = 0 # background image
 
-    base_image = 0
+    vert_filter = 0 # vertical filter for convolving down to a single row
 
-
-    vert_filter = 0
-    horz_filter = 0
     print('loaded video')
-    i = 0
+    i = 0 # frame counter
     
-    
-    vertical_comp = 0
 
     for frame in container.decode(video=0):
         image = rgb2gray(np.array(frame.to_image()))
         if i == 0:
-            out_image = np.zeros((num_frames, image.shape[0]))
+
+            # initialize arrays and vertical filter
             finish_image = np.zeros((image.shape[1], num_frames))
             base_image = image
             vert_filter = np.ones((1, image.shape[1])) / image.shape[1]
-            horz_filter = np.ones((image.shape[0], 1)) / image.shape[0]
+            for j in range(int(vert_filter.shape[1] * 2 / 3), vert_filter.shape[1]):
+                vert_filter[0, j] = vert_filter[0, j] * (1 - 2 * (j - vert_filter.shape[1] * 2 / 3) / vert_filter.shape[1])
+            print(vert_filter)
             frames = np.zeros((num_frames, image.shape[0], image.shape[1]))
             horizontal_comp = np.zeros((num_frames, image.shape[0]))
-            vertical_comp = np.zeros((num_frames, image.shape[1]))
-        finish_image[:, i] = image[finish_line, :]
-        if i == 300:
-            np.save('image300.npy', image)
-            np.save('base_image.npy', base_image)
-        frames[i,:,:] = image
-        image = abs(image - base_image)
+        finish_image[:, i] = image[finish_line, :] # take vertical strip of image at finish line
+        frames[i,:,:] = image 
+        image = abs(image - base_image) # subtract out background
         
-        horz_filtered = convolve2d(image, vert_filter, mode='valid')
-        horz_bg = horz_filtered < .04
-        horz_person = horz_filtered > .04
+        horz_filtered = convolve2d(image, vert_filter, mode='valid') # convolve with vertical filter
+
+        # clamp values to be 0 or 1
+
+        horz_bg = horz_filtered < .03
+        horz_person = horz_filtered > .03
         horz_filtered[horz_bg] = 0
         horz_filtered[horz_person] = 1
 
         horizontal_comp[i, :] = horz_filtered.reshape(horz_filtered.shape[0])
-        out_image[i, :] = horz_filtered.reshape(horz_filtered.shape[0])
         
         i += 1
     print('processed video')
-    save_image(out_image, 'edges.png')
     edge_kernel = np.ones(15) / 7.5
     edge_kernel[0:4] = -edge_kernel[0:4]
     edge_kernel = edge_kernel.reshape((1, len(edge_kernel)))
 
-    edges = convolve2d(out_image - 0.5, edge_kernel)
+    edges = convolve2d(horizontal_comp - 0.5, edge_kernel)
 
     #np.save('horizontal_comp.npy', horizontal_comp)
     #np.save('frames.npy', frames)
@@ -121,6 +119,8 @@ y = []
 
 max_finishes = []
 
+save_image(edges, 'edges3.png')
+
 for i in range(edges.shape[1]):
     maxes = peak_local_max(edges[:, i], min_distance=15, threshold_abs=.8)
     new_col = np.zeros(edges[:,i].shape)
@@ -135,7 +135,7 @@ x = np.array(x)
 y = np.array(y)
 
 sample_size = 4
-inlier_threshold = 8
+inlier_threshold = 5
 num_inliers_threshold = 100
 
 pil_edges = convert_to_pil(edges)
@@ -163,7 +163,7 @@ while len(x) > num_inliers_threshold and lines_drawn < 10 and num_iters < 2000:
     #print(num_inliers)
     if num_inliers > num_inliers_threshold:
         regs.append(reg)
-        outliers = diff >= inlier_threshold
+        outliers = diff >= inlier_threshold * 2.5
         x = np.extract(outliers, x)
         y = np.extract(outliers, y)
         edges_draw.line([(0, reg.predict(np.array([[0]]))[0]), (edges.shape[1] - 1, reg.predict(np.array([[edges.shape[1] - 1]]))[0])], fill = (255, 255, 0))
@@ -172,10 +172,11 @@ while len(x) > num_inliers_threshold and lines_drawn < 10 and num_iters < 2000:
 finish_pil = convert_to_pil(finish_image)
 finish_draw = ImageDraw.Draw(finish_pil)
 
+
+# for each fitted line, draw a line in the cross-sectional image and get an image to
 for count, reg in enumerate(regs):
     chest = int(reg.predict(np.array([[finish_line]]))[0])
     finish_draw.line([(chest, 0), (chest, finish_image.shape[0])], fill=(255, 0, 0))
-
     get_number_image(frames[chest,:,:], frames[0,:,:], finish_line, horizontal_comp[chest,:].reshape(horizontal_comp[chest,:].shape[0]), 'finish_' + str(count) + '.png')
 
 #for finish in max_finishes:
@@ -185,9 +186,3 @@ finish_pil.save('finish.png')
 
 
 pil_edges.save('edges2.png')
-
-"""pil_image = convert_to_pil(out_image)
-id = ImageDraw.Draw(pil_image)
-id.line([(finish_line, 0), (finish_line, pil_image.height)], fill=(255, 0, 0))
-pil_image.save('out2.png')
-print('saved image')"""
