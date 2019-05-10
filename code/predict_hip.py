@@ -5,29 +5,18 @@ import tensorflow as tf
 import hipCNN
 import mnistCNN
 
-def predict_file(file, classifier):
-    predict_x = cv2.imread(file)
-    predict_x = cv2.cvtColor(predict_x, cv2.COLOR_BGR2GRAY)
-    predict_x = cv2.resize(predict_x, (28, 28))
-    predict_array(predict_x, classifier)
-
 def classify_hip(input, classifier):
-    input = input
+    input = np.array(input)
+    input = input.astype('float32')
     predictions = classifier.predict(
     input_fn=tf.estimator.inputs.numpy_input_fn(
     x={"x": input},
     num_epochs=1,
     shuffle=False))
-    return np.argmax(np.array(list(predictions)[0]['probabilities']))
+    res = list(predictions)[0]
+    print(res['probabilities'])
+    return res['classes']
 
-def predict_array(predict_x, classifier):
-    predict_x = predict_x/np.float32(255)
-    predictions = classifier.predict(
-    input_fn=tf.estimator.inputs.numpy_input_fn(
-    x={"x": predict_x},
-    num_epochs=1,
-    shuffle=False))
-    return list(predictions)[0]['probabilities'][1]
 
 def predict_array(predict_x, classifier):
     predict_x = predict_x/np.float32(255)
@@ -48,8 +37,11 @@ def locate_hip(file):
 
     y = 0
     x = 0
+
     #hyperparameters
-    step = 20
+    # step sets the step size when scanning the Image
+    # width_ratio sets the ratio of the image height to the hip # height
+    step = 9
     width_ratio = 5
 
     dim = int(i.shape[1]/width_ratio)
@@ -57,17 +49,22 @@ def locate_hip(file):
     width = i.shape[1]
     height = i.shape[0]
 
-
+    # vals stores the probability that each section of the image has a hip #
     vals = np.zeros((int((height-dim)/step)+1, int((width-dim)/step)+1))
 
+    # iterate down the height of the image
     while y < height-dim:
         print(y)
         x = 0
+        # iterate across the width of the image
         while x < width-dim:
+            # a subsection of the image is sampled and resized
             sub_image = i[y:y+dim, x:x+dim]
             sub_image = cv2.resize(sub_image, (28, 28))
+            # a score is computed for the subsection that is higher
+            # if it looks more like a hip number. This score is stored
+            # in vals
             score = predict_array(sub_image, hip_classifier)
-            # score = 1.0
             vals[int(y/step), int(x/step)] = score
             x+=step
         y+=step
@@ -78,11 +75,8 @@ def locate_hip(file):
     np.save("heatmap.npy", results)
 
     coords = np.unravel_index(np.argmax(vals), vals.shape)
-    print(coords)
     best_y = coords[0]
     best_x = coords[1]
-    print("best_y" + str(best_y))
-    print("best_x" + str(best_x))
     best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
 
     # prepare image for mnist classification
@@ -94,10 +88,8 @@ def locate_hip(file):
     for y in range(0,28):
         for x in range(0,28):
             if is_num(small_hip, y, x):
-                print(small_hip[y,x])
                 prepped_image[y,x] = small_hip[y,x]
             else:
-                print(str(0.95))
                 prepped_image[y,x] = 0.80
 
 
@@ -135,8 +127,6 @@ def is_num(small_hip, y, x):
         total += 1
     if bottom:
         total += 1
-    print(total)
-    print(total >= 4)
     return total >= 3
 
 
@@ -149,7 +139,7 @@ def load_vals(file):
     step = 20
     width_ratio = 5
 
-    dim = int(i.shape[1]/width_ratio)
+    dim = int(i.shape[0]/width_ratio)
 
     vals = np.load("heatmap.npy")
 
@@ -159,16 +149,12 @@ def load_vals(file):
     # np.save("heatmap.npy", results)
 
     coords = np.unravel_index(np.argmax(vals), vals.shape)
-    print(coords)
     best_y = coords[0]
     best_x = coords[1]
-    print("best_y" + str(best_y))
-    print("best_x" + str(best_x))
     best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
 
     # prepare image for mnist classification
     small_hip = cv2.resize(best_image, (28,28))
-    print(small_hip)
     prepped_image = np.zeros((28,28))
 
     for y in range(0,28):
@@ -183,14 +169,17 @@ def load_vals(file):
 
 
     cv2.imshow("hip", view)
-    np.save("hip.png", view)
+    np.save("hip2.png", view)
 
     cv2.waitKey(0)
 
 
 zach_pic = "../data/finish-line/bmps/marked/20190413_140509_011.bmp"
-finish_3 = "pngs/finish_3.png"
+finish_1 = "finish_1.png"
+finish_2 = "finish_2.png"
+finish_4 = "finish_4.png"
 # predict_file("../data/finish-line/bmps/train/eval/20190413_144457_1327_neg1.bmp")
 # locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
-locate_hip(finish_3)
-# load_vals(finish_3)
+locate_hip(finish_2)
+locate_hip(finish_4)
+locate_hip(finish_1)

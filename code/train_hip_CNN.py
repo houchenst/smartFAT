@@ -5,6 +5,9 @@ import numpy as np
 import tensorflow as tf
 import hipCNN
 
+# This function runs 1000 steps of training for the
+# hip recognizing CNN. The CNN is trained in batch 
+# sizes of 100 which means this runs about 10 epochs
 def main():
     print("start")
     ((train_data, train_labels),
