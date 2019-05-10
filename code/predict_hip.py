@@ -3,12 +3,31 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import hipCNN
+import mnistCNN
 
 def predict_file(file, classifier):
     predict_x = cv2.imread(file)
     predict_x = cv2.cvtColor(predict_x, cv2.COLOR_BGR2GRAY)
     predict_x = cv2.resize(predict_x, (28, 28))
     predict_array(predict_x, classifier)
+
+def classify_hip(input, classifier):
+    input = input
+    predictions = classifier.predict(
+    input_fn=tf.estimator.inputs.numpy_input_fn(
+    x={"x": input},
+    num_epochs=1,
+    shuffle=False))
+    return np.argmax(np.array(list(predictions)[0]['probabilities']))
+
+def predict_array(predict_x, classifier):
+    predict_x = predict_x/np.float32(255)
+    predictions = classifier.predict(
+    input_fn=tf.estimator.inputs.numpy_input_fn(
+    x={"x": predict_x},
+    num_epochs=1,
+    shuffle=False))
+    return list(predictions)[0]['probabilities'][1]
 
 def predict_array(predict_x, classifier):
     predict_x = predict_x/np.float32(255)
@@ -27,14 +46,17 @@ def locate_hip(file):
     i = cv2.imread(file)
     i = cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)
 
-    dim = int(i.shape[1]/25)
+    y = 0
+    x = 0
+    #hyperparameters
+    step = 20
+    width_ratio = 5
+
+    dim = int(i.shape[1]/width_ratio)
 
     width = i.shape[1]
     height = i.shape[0]
 
-    y = 0
-    x = 0
-    step = 20
 
     vals = np.zeros((int((height-dim)/step)+1, int((width-dim)/step)+1))
 
@@ -50,22 +72,125 @@ def locate_hip(file):
             x+=step
         y+=step
 
-    print(vals)
     # cv2.imshow("results", vals)
-    best_y = np.argmax(vals, axis=0)
-    best_x = np.argmax(vals, axis=1)
-    best_image = vals[best_y:best_y+dim, best_x:best_x+dim]
-    best_image = cv2.resize(best_image, (300, 300))
-    cv2.imshow("hip", best_image)
+    results = cv2.resize(vals, (300, 300))
+    cv2.imwrite("heatmap.png", results)
+    np.save("heatmap.npy", results)
+
+    coords = np.unravel_index(np.argmax(vals), vals.shape)
+    print(coords)
+    best_y = coords[0]
+    best_x = coords[1]
+    print("best_y" + str(best_y))
+    print("best_x" + str(best_x))
+    best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
+
+    # prepare image for mnist classification
+    small_hip = cv2.resize(best_image, (28,28))
+    small_hip = small_hip/np.float32(255)
+
+    prepped_image = np.zeros((28,28))
+
+    for y in range(0,28):
+        for x in range(0,28):
+            if is_num(small_hip, y, x):
+                print(small_hip[y,x])
+                prepped_image[y,x] = small_hip[y,x]
+            else:
+                print(str(0.95))
+                prepped_image[y,x] = 0.80
+
+
+    view = cv2.resize(prepped_image, (300, 300))
+
+
+    cv2.imshow("hip", view)
+    np.save("hip.png", view)
+
+    mnist_classifier = tf.estimator.Estimator(
+        model_fn=mnistCNN.cnn_model_fn, model_dir="mnist")
+
+    final_result = classify_hip(prepped_image, mnist_classifier)
+    print("FINAL RESULT: " + str(final_result))
+
+    cv2.waitKey(0)
+
+# Determines whether the point at y,xx in small_hip
+# is part of the number portion of a hip number
+#returns boolean
+def is_num(small_hip, y, x):
+    threshold = 0.4
+    if (small_hip[y,x] > threshold):
+        return False
+    left = x==0 or np.amax(small_hip[y, 0:x]) > threshold
+    right = np.amax(small_hip[y, x:28]) > threshold
+    top = y==0 or np.amax(small_hip[0:y, x]) > threshold
+    bottom = np.amax(small_hip[y:28, x]) > threshold
+    total = 0
+    if left:
+        total += 1
+    if right:
+        total += 1
+    if top:
+        total += 1
+    if bottom:
+        total += 1
+    print(total)
+    print(total >= 4)
+    return total >= 3
+
+
+
+
+def load_vals(file):
+    i = cv2.imread(file)
+    i = cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)
+
+    step = 20
+    width_ratio = 5
+
+    dim = int(i.shape[1]/width_ratio)
+
+    vals = np.load("heatmap.npy")
+
+    # cv2.imshow("results", vals)
+    results = cv2.resize(vals, (300, 300))
+    # cv2.imwrite("heatmap.png", results)
+    # np.save("heatmap.npy", results)
+
+    coords = np.unravel_index(np.argmax(vals), vals.shape)
+    print(coords)
+    best_y = coords[0]
+    best_x = coords[1]
+    print("best_y" + str(best_y))
+    print("best_x" + str(best_x))
+    best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
+
+    # prepare image for mnist classification
+    small_hip = cv2.resize(best_image, (28,28))
+    print(small_hip)
+    prepped_image = np.zeros((28,28))
+
+    for y in range(0,28):
+        for x in range(0,28):
+            if is_num(small_hip, y, x):
+                prepped_image[y,x] = small_hip[y,x]
+            else:
+                prepped_image[y,x] = 0.95
+
+
+    view = cv2.resize(prepped_image, (300, 300))
+
+
+    cv2.imshow("hip", view)
+    np.save("hip.png", view)
 
     cv2.waitKey(0)
 
 
-
-
-
-
+zach_pic = "../data/finish-line/bmps/marked/20190413_140509_011.bmp"
+finish_3 = "pngs/finish_3.png"
 # predict_file("../data/finish-line/bmps/train/eval/20190413_144457_1327_neg1.bmp")
-locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
-image = cv2.imread("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
-cv2.imshow("image", image)
+# locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
+locate_hip(finish_3)
+# load_vals(finish_3)
