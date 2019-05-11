@@ -6,7 +6,7 @@ import hipCNN
 import mnistCNN
 
 def classify_hip(input, classifier):
-    input = np.array(input)
+    input = np.array(input)/np.float32(255)
     input = input.astype('float32')
     predictions = classifier.predict(
     input_fn=tf.estimator.inputs.numpy_input_fn(
@@ -70,21 +70,25 @@ def locate_hip(file):
         y+=step
 
     # cv2.imshow("results", vals)
-    results = cv2.resize(vals, (300, 300))
-    cv2.imwrite("heatmap.png", results)
-    np.save("heatmap.npy", results)
+    # results = cv2.resize(vals, (300, 300))
+    # cv2.imwrite("heatmap.png", results)
+    # np.save("heatmap.npy", results)
 
     coords = np.unravel_index(np.argmax(vals), vals.shape)
     best_y = coords[0]
     best_x = coords[1]
+    # find the subimage that had the best hip number score
     best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
 
-    # prepare image for mnist classification
+    #adjust size of the hip number section
     small_hip = cv2.resize(best_image, (28,28))
     small_hip = small_hip/np.float32(255)
 
+    # black image that will be prepared for mnist classification
     prepped_image = np.zeros((28,28))
 
+    # fill prepped image so that the number is black
+    # and the background is white
     for y in range(0,28):
         for x in range(0,28):
             if is_num(small_hip, y, x):
@@ -180,6 +184,6 @@ finish_2 = "finish_2.png"
 finish_4 = "finish_4.png"
 # predict_file("../data/finish-line/bmps/train/eval/20190413_144457_1327_neg1.bmp")
 # locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
-locate_hip(finish_2)
+# locate_hip(finish_2)
 locate_hip(finish_4)
-locate_hip(finish_1)
+# locate_hip(finish_1)
