@@ -14,7 +14,7 @@ def classify_hip(input, classifier):
     num_epochs=1,
     shuffle=False))
     res = list(predictions)[0]
-    print(res['probabilities'])
+    # print(res['probabilities'])
     return res['classes']
 
 
@@ -54,7 +54,7 @@ def locate_hip(file):
 
     # iterate down the height of the image
     while y < height-dim:
-        print(y)
+        # print(y)
         x = 0
         # iterate across the width of the image
         while x < width-dim:
@@ -97,19 +97,20 @@ def locate_hip(file):
                 prepped_image[y,x] = 0.80
 
 
-    view = cv2.resize(prepped_image, (300, 300))
+    # view = cv2.resize(prepped_image, (300, 300))
 
 
-    cv2.imshow("hip", view)
-    np.save("hip.png", view)
+    # cv2.imshow("hip", view)
+    # np.save("hip.png", view)
 
     mnist_classifier = tf.estimator.Estimator(
         model_fn=mnistCNN.cnn_model_fn, model_dir="mnist")
 
     final_result = classify_hip(prepped_image, mnist_classifier)
-    print("FINAL RESULT: " + str(final_result))
+    # print("FINAL RESULT: " + str(final_result))
 
-    cv2.waitKey(0)
+    # cv2.waitKey(0)
+    return final_result
 
 # Determines whether the point at y,xx in small_hip
 # is part of the number portion of a hip number
@@ -135,55 +136,13 @@ def is_num(small_hip, y, x):
 
 
 
-
-def load_vals(file):
-    i = cv2.imread(file)
-    i = cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)
-
-    step = 20
-    width_ratio = 5
-
-    dim = int(i.shape[0]/width_ratio)
-
-    vals = np.load("heatmap.npy")
-
-    # cv2.imshow("results", vals)
-    results = cv2.resize(vals, (300, 300))
-    # cv2.imwrite("heatmap.png", results)
-    # np.save("heatmap.npy", results)
-
-    coords = np.unravel_index(np.argmax(vals), vals.shape)
-    best_y = coords[0]
-    best_x = coords[1]
-    best_image = i[best_y*step:best_y*step+dim, best_x*step:best_x*step+dim]
-
-    # prepare image for mnist classification
-    small_hip = cv2.resize(best_image, (28,28))
-    prepped_image = np.zeros((28,28))
-
-    for y in range(0,28):
-        for x in range(0,28):
-            if is_num(small_hip, y, x):
-                prepped_image[y,x] = small_hip[y,x]
-            else:
-                prepped_image[y,x] = 0.95
-
-
-    view = cv2.resize(prepped_image, (300, 300))
-
-
-    cv2.imshow("hip", view)
-    np.save("hip2.png", view)
-
-    cv2.waitKey(0)
-
-
-zach_pic = "../data/finish-line/bmps/marked/20190413_140509_011.bmp"
-finish_1 = "finish_1.png"
-finish_2 = "finish_2.png"
-finish_4 = "finish_4.png"
-# predict_file("../data/finish-line/bmps/train/eval/20190413_144457_1327_neg1.bmp")
-# locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
-# locate_hip(finish_2)
-locate_hip(finish_4)
+# zach_pic = "../data/finish-line/bmps/marked/20190413_140509_011.bmp"
+# finish_1 = "finish_1.png"
+# finish_2 = "finish_2.png"
+# finish_3 = "finish_3.png"
+# finish_4 = "finish_4.png"
+# # predict_file("../data/finish-line/bmps/train/eval/20190413_144457_1327_neg1.bmp")
+# # locate_hip("../data/finish-line/bmps/marked/20190413_140509_011.bmp")
+# locate_hip(finish_3)
+# locate_hip(finish_4)
 # locate_hip(finish_1)
