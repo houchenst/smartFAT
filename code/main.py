@@ -8,7 +8,25 @@ from scipy.signal import convolve2d
 from PIL import Image, ImageDraw
 from sklearn.linear_model import LinearRegression
 from scipy.ndimage.filters import gaussian_filter1d
+from predict_hip import locate_hip
 import os
+
+####################################################
+#
+# to use this file just change this variable
+# to the path of the video you would like to
+# process
+#
+
+path = '../data/finish-line/20190413_134043.mp4'
+
+#
+# it should output an image finish.py and print
+# the hip numbers of the runners in the order they
+# finished
+#
+####################################################
+
 
 # convert numpy arraw to pillow image
 def convert_to_pil(arr):
@@ -72,6 +90,7 @@ def get_number_image(frame, base_image, finish_line, horz_comp, file_name):
     output = np.flip(output, axis=1)
 
     save_image(output, file_name)
+    return output
 
 finish_line = 360 # x coordinate of the finish line
 
@@ -83,7 +102,6 @@ finish_image = 0 # cross-sectional image
 
 # array saving and loading was used to speed up development and can be enabled by removing the 'True or' at the beginning of the if condition
 if True or not os.path.isfile('edges.npy') or not os.path.isfile('finish.npy') or not os.path.isfile('horizontal_comp.npy') or not os.path.isfile('frames.npy'):
-    path = '../data/finish-line/20190413_134043.mp4'
     video = cv2.VideoCapture(path)
     container = av.open(path)
 
@@ -154,8 +172,8 @@ y = []
 # prior method for finding finishes
 max_finishes = []
 
-save_image(horizontal_comp, 'edges3.png')
-save_image(edges, 'edges.png')
+# save_image(horizontal_comp, 'edges3.png')
+# save_image(edges, 'edges.png')
 
 for i in range(edges.shape[1]):
     # for each row run non-max suppression
@@ -174,7 +192,7 @@ for i in range(edges.shape[1]):
 x = np.array(x)
 y = np.array(y)
 
-save_image(edges, 'edges4.png')
+# save_image(edges, 'edges4.png')
 
 # constants for RANSAC
 sample_size = 4 # sample size of points considered on each iteration
@@ -233,14 +251,22 @@ finish_pil = convert_to_pil(finish_image)
 finish_draw = ImageDraw.Draw(finish_pil)
 
 
+def finish_time(reg):
+    return int(reg.predict(np.array([[finish_line]]))[0])
+
+regs.sort(key=finish_time)
+
 # for each fitted line, draw a line in the cross-sectional image and get an image to
 for count, reg in enumerate(regs):
     chest = int(reg.predict(np.array([[finish_line]]))[0])
     finish_draw.line([(chest, 0), (chest, finish_image.shape[0])], fill=(255, 0, 0))
-    get_number_image(frames[chest,:,:], frames[0,:,:], finish_line, horizontal_comp[chest,:].reshape(horizontal_comp[chest,:].shape[0]), 'finish_' + str(count) + '.png')
+    finish_image = get_number_image(frames[chest,:,:], frames[0,:,:], finish_line, horizontal_comp[chest,:].reshape(horizontal_comp[chest,:].shape[0]), 'finish_' + str(count) + '.png')
+    num = locate_hip(finish_image)
+    print("Results:")
+    print(str(count + 1) + ') ' + str(num))
+    
 
 #for finish in max_finishes:
     #finish_draw.line([(finish, 0), (finish, finish_image.shape[0])], fill=(255, 255, 0))
 
 finish_pil.save('finish.png')
-pil_edges.save('edges2.png')
