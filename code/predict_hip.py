@@ -27,13 +27,13 @@ def predict_array(predict_x, classifier):
     shuffle=False))
     return list(predictions)[0]['probabilities'][1]
 
-def locate_hip(file):
+def locate_hip(i):
 
     hip_classifier = tf.estimator.Estimator(
         model_fn=hipCNN.cnn_model_fn, model_dir="model")
 
-    i = cv2.imread(file)
-    i = cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)
+    # i = cv2.imread(file)
+    # i = cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)
 
     y = 0
     x = 0
