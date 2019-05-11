@@ -37,9 +37,6 @@ def get_number_image(frame, base_image, finish_line, horz_comp, file_name):
             break
     # get subtracted image
     sub = abs(frame - base_image)
-
-    bg = sub < .02
-    frame[bg] = 0
     
     # take the vertical stripe of the image where there is runner
     segment = np.transpose(frame[lower_bound:finish_line+10, :])
@@ -157,7 +154,8 @@ y = []
 # prior method for finding finishes
 max_finishes = []
 
-# save_image(edges, 'edges3.png')
+save_image(horizontal_comp, 'edges3.png')
+save_image(edges, 'edges.png')
 
 for i in range(edges.shape[1]):
     # for each row run non-max suppression
@@ -175,6 +173,8 @@ for i in range(edges.shape[1]):
 
 x = np.array(x)
 y = np.array(y)
+
+save_image(edges, 'edges4.png')
 
 # constants for RANSAC
 sample_size = 4 # sample size of points considered on each iteration
