@@ -13,7 +13,7 @@ import os
 
 ####################################################
 #
-# to use this file just change this variable
+# to use this program just change this variable
 # to the path of the video you would like to
 # process
 #
@@ -21,7 +21,7 @@ import os
 path = '../data/finish-line/20190413_134043.mp4'
 
 #
-# it should output an image finish.py and print
+# it should output an image finish.png and print
 # the hip numbers of the runners in the order they
 # finished
 #
@@ -260,8 +260,8 @@ regs.sort(key=finish_time)
 for count, reg in enumerate(regs):
     chest = int(reg.predict(np.array([[finish_line]]))[0])
     finish_draw.line([(chest, 0), (chest, finish_image.shape[0])], fill=(255, 0, 0))
-    finish_image = get_number_image(frames[chest,:,:], frames[0,:,:], finish_line, horizontal_comp[chest,:].reshape(horizontal_comp[chest,:].shape[0]), 'finish_' + str(count) + '.png')
-    num = locate_hip(finish_image)
+    finisher_image = get_number_image(frames[chest,:,:], frames[0,:,:], finish_line, horizontal_comp[chest,:].reshape(horizontal_comp[chest,:].shape[0]), 'finish_' + str(count) + '.png')
+    num = locate_hip(finisher_image)
     print("Results:")
     print(str(count + 1) + ') ' + str(num))
     
